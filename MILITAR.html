@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.M. // Sistema de Control Táctico Optimizado</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Configuración de Tailwind para Tema Táctico Oscuro -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        tactic: {
+                            bg: '#090e0b',        /* Fondo ultra oscuro */
+                            panel: '#101712',     /* Paneles */
+                            border: '#1c2b20',    /* Bordes sutiles */
+                            primary: '#39ff14',   /* Verde Neón Radar */
+                            secondary: '#6b9c6b', /* Verde apagado */
+                            alert: '#ff2a2a',     /* Rojo alerta */
+                            text: '#c1d9c1'       /* Texto base */
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    },
+                    boxShadow: {
+                        'neon': '0 0 5px rgba(57, 255, 20, 0.2), 0 0 15px rgba(57, 255, 20, 0.1)',
+                        'panel': '0 4px 20px rgba(0, 0, 0, 0.8)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090e0b;
+            color: #c1d9c1;
+            font-family: 'JetBrains Mono', monospace;
+            background-image: 
+                linear-gradient(rgba(9, 14, 11, 0.95), rgba(9, 14, 11, 0.95)),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(57, 255, 20, 0.03) 2px, rgba(57, 255, 20, 0.03) 4px);
+            background-attachment: fixed;
+        }
+
+        /* Scrollbar táctica */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #090e0b; border-left: 1px solid #1c2b20; }
+        ::-webkit-scrollbar-thumb { background: #1c2b20; }
+        ::-webkit-scrollbar-thumb:hover { background: #39ff14; }
+
+        /* Componentes de formulario estilo terminal */
+        select, input {
+            background-color: #090e0b !important;
+            color: #39ff14 !important;
+            border: 1px solid #1c2b20 !important;
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        select:focus, input:focus {
+            border-color: #39ff14 !important;
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.2) !important;
+        }
+
+        /* Scanline Overlay (Decorativo) */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.25) 51%);
+            background-size: 100% 4px;
+            z-index: 9999;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-tactic-primary selection:text-black antialiased">
+    
+    <div class="scanlines"></div>
+
+    <header class="bg-tactic-panel border-b border-tactic-primary shadow-neon sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center">
+            <div class="flex items-center space-x-4 mb-3 sm:mb-0">
+                <div class="w-12 h-12 border-2 border-tactic-primary flex items-center justify-center text-tactic-primary bg-tactic-primary/10 rounded-sm">
+                    <i class="fa-solid fa-satellite-dish text-xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-tactic-primary tracking-widest uppercase">COMANDO ESTRATÉGICO</h1>
+                    <p class="text-[10px] sm:text-xs text-tactic-secondary tracking-widest uppercase">SYS-DB: Flota Combinada V2.9 // MAPEO TIPO & ESTADO</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3 text-xs bg-black px-4 py-2 border border-tactic-border rounded-sm">
+                <span id="linkIndicator" class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+                <span class="text-tactic-secondary">LINK: <strong id="linkStatusText" class="text-yellow-400">SINCRONIZANDO</strong></span>
+                <span class="text-tactic-border">|</span>
+                <span class="text-tactic-secondary">REGS: <strong id="totalRecordsBadge" class="text-white">0</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
+
+            <aside class="lg:col-span-1 space-y-4">
+                <div class="bg-tactic-panel border border-tactic-border p-5 shadow-panel rounded-sm sticky top-24">
+                    <div class="flex items-center justify-between pb-4 mb-5 border-b border-tactic-border">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2 tracking-widest">
+                            <i class="fa-solid fa-terminal text-tactic-primary"></i> PARÁMETROS
+                        </h2>
+                        <button id="btnRefreshCache" title="Forzar recarga remota" class="text-tactic-secondary hover:text-tactic-primary transition text-xs">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                    </div>
+
+                    <form id="filterForm" class="space-y-5">
+                        
+                        <!-- Barra de Búsqueda -->
+                        <div>
+                            <label class="block text-[10px] font-bold mb-2 text-tactic-secondary tracking-widest uppercase">> Búsqueda de Modelo</label>
+                            <div class="relative">
+                                <input type="text" id="searchQuery" placeholder="Ej. B-52, Cazacarros, Boeing..." class="w-full p-2.5 text-xs rounded-sm pl-8">
+                                <span class="absolute left-2.5 top-2.5 text-tactic-primary opacity-60"><i class="fa-solid fa-magnifying-glass"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Dominio Operativo -->
+                        <div>
+                            <label class="block text-[10px] font-bold mb-2 text-tactic-secondary tracking-widest uppercase">> Dominio Operativo</label>
+                            <select id="dominioFlota" class="w-full p-2.5 text-xs rounded-sm cursor-pointer">
+                                <option value="TODOS">TODOS LOS DOMINIOS</option>
+                            </select>
+                        </div>
+
+                        <!-- Tipo -->
+                        <div>
+                            <label class="block text-[10px] font-bold mb-2 text-tactic-secondary tracking-widest uppercase">> Tipo</label>
+                            <select id="tipoFlota" class="w-full p-2.5 text-xs rounded-sm cursor-pointer">
+                                <option value="TODOS">TODOS LOS TIPOS</option>
+                            </select>
+                        </div>
+
+                        <!-- Estado (Opciones estrictas solicitadas) -->
+                        <div>
+                            <label class="block text-[10px] font-bold mb-2 text-tactic-secondary tracking-widest uppercase">> Estado</label>
+                            <select id="estadoFlota" class="w-full p-2.5 text-xs rounded-sm cursor-pointer">
+                                <option value="TODOS">TODOS LOS ESTADOS</option>
+                                <option value="EN SERVICIO">EN SERVICIO</option>
+                                <option value="RETIRADO">RETIRADO</option>
+                                <option value="EN PRODUCCIÓN">EN PRODUCCIÓN</option>
+                                <option value="PLANEADO">PLANEADO</option>
+                                <option value="CANCELADO">CANCELADO</option>
+                                <option value="EN ACTUALIZACIÓN">EN ACTUALIZACIÓN</option>
+                                <option value="EN CONSTRUCCIÓN">EN CONSTRUCCIÓN</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-4 border-t border-tactic-border flex gap-3">
+                            <button type="button" id="btnReset" disabled class="w-full bg-transparent text-tactic-border border border-tactic-border text-xs font-bold py-2.5 px-4 rounded-sm transition duration-200 cursor-not-allowed opacity-50">
+                                RESET
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </aside>
+
+            <section class="lg:col-span-3 flex flex-col space-y-4">
+                <div class="bg-tactic-panel border border-tactic-border px-4 py-3 flex flex-col sm:flex-row justify-between items-center shadow-panel rounded-sm">
+                    <h2 class="font-bold text-sm text-white tracking-widest flex items-center gap-2">
+                        <i class="fa-solid fa-crosshairs text-tactic-primary"></i> RESULTADOS DEL RADAR
+                    </h2>
+                    <div class="text-[10px] text-tactic-primary tracking-widest uppercase mt-2 sm:mt-0">
+                        Matches: <span id="resultCounter" class="text-white font-bold bg-tactic-border px-2 py-1 rounded-sm ml-1">...</span>
+                    </div>
+                </div>
+
+                <!-- Grid Dinámico y Skeletons -->
+                <div id="fleetContainer" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <!-- Skeletons iniciales mientras carga -->
+                </div>
+
+                <!-- Estado Vacío -->
+                <div id="emptyState" class="hidden flex-col items-center justify-center p-16 bg-tactic-panel border border-tactic-border rounded-sm text-center shadow-panel">
+                    <i class="fa-solid fa-radar text-4xl text-tactic-alert opacity-50 mb-4 animate-spin" style="animation-duration: 3s;"></i>
+                    <h3 class="text-lg font-bold text-white tracking-widest uppercase">OBJETIVO NO ENCONTRADO</h3>
+                    <p class="text-xs text-tactic-secondary mt-2 max-w-sm">Los parámetros de búsqueda no devolvieron resultados. Ajuste los filtros tácticos.</p>
+                </div>
+
+                <!-- Estado de Error / Fallback -->
+                <div id="errorState" class="hidden flex-col items-center justify-center p-12 bg-tactic-panel border border-tactic-alert rounded-sm text-center shadow-panel">
+                    <i class="fa-solid fa-triangle-exclamation text-4xl text-tactic-alert mb-4"></i>
+                    <h3 class="text-lg font-bold text-white tracking-widest uppercase">FALLO EN ENLACE DE DATOS</h3>
+                    <p id="errorMessage" class="text-xs text-tactic-secondary mt-2 max-w-md mb-6">No se pudo establecer conexión con el servidor remoto.</p>
+                    <button id="btnRetry" class="bg-tactic-alert/20 hover:bg-tactic-alert/40 text-tactic-alert border border-tactic-alert px-6 py-2 text-xs font-bold rounded-sm transition">
+                        REINTENTAR CONEXIÓN
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Modal Táctico de Detalle e Imagen -->
+    <div id="modelModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] hidden items-center justify-center p-4">
+        <div class="bg-tactic-panel border border-tactic-primary w-full max-w-xl rounded-sm shadow-neon p-6 relative animate-in fade-in zoom-in duration-200">
+            <button id="closeModal" class="absolute top-4 right-4 text-tactic-secondary hover:text-tactic-primary text-lg transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="flex items-center space-x-3 mb-6 pb-4 border-b border-tactic-border">
+                <div class="w-10 h-10 border border-tactic-primary flex items-center justify-center text-tactic-primary bg-tactic-primary/10 rounded-sm">
+                    <i class="fa-solid fa-crosshairs"></i>
+                </div>
+                <div>
+                    <h3 id="modalModelTitle" class="text-base font-bold text-white tracking-widest">REGISTRO TÁCTICO</h3>
+                    <p id="modalModelId" class="text-[10px] text-tactic-primary uppercase">ID: ---</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="w-full h-52 bg-black border border-tactic-border rounded-sm overflow-hidden flex items-center justify-center relative">
+                    <img id="modalModelImg" src="" alt="Modelo Táctico" class="w-full h-full object-cover opacity-90" onerror="this.onerror=null; this.src='https://placehold.co/600x400/090e0b/39ff14?text=SISTEMA+TACTICO+//+SIN+IMAGEN';">
+                    <div class="absolute bottom-2 left-2 bg-black/80 px-2 py-1 border border-tactic-border text-[9px] text-tactic-primary">
+                        VISUALIZACIÓN DE ESPECIMEN
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 text-xs bg-black/50 p-4 border border-tactic-border rounded-sm">
+                    <div>
+                        <span class="text-[10px] text-tactic-secondary block uppercase">Tipo:</span>
+                        <strong id="modalModelType" class="text-white">---</strong>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-tactic-secondary block uppercase">Estado Operativo:</span>
+                        <strong id="modalModelStatus" class="text-tactic-primary">---</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-tactic-border flex justify-end">
+                <button id="btnCloseModalBtn" class="bg-tactic-primary/20 hover:bg-tactic-primary/30 text-tactic-primary border border-tactic-primary px-5 py-2 text-xs font-bold rounded-sm transition">
+                    CERRAR EXPEDIENTE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="border-t border-tactic-border bg-tactic-panel py-6 mt-8 text-center text-[10px] text-tactic-secondary tracking-widest uppercase">
+        <p>SECURE TERMINAL // B.M. DATABANKS &copy; 2026</p>
+    </footer>
+
+    <script>
+        let flotaDB = [];
+        const CACHE_KEY = 'tactic_fleet_db_cache_v10';
+        const CACHE_TIMESTAMP_KEY = 'tactic_fleet_db_time_v10';
+        const CACHE_TTL = 1000 * 60 * 30; // 30 minutos de caché
+
+        const DATA_URL = 'https://raw.githubusercontent.com/alejandro402/json1/refs/heads/main/MILITAR_JSON_2.json';
+
+        const BACKUP_DATA = [
+            { id: "B-01", dominio: "AÉREO", tipo: "BOMBARDERO", modelo: "B-52 Stratofortress", estado: "EN SERVICIO" },
+            { id: "B-02", dominio: "AÉREO", tipo: "BOMBARDERO", modelo: "B-2 Spirit", estado: "EN SERVICIO" },
+            { id: "T-01", dominio: "TERRESTRE", tipo: "CAZACARROS", modelo: "M18 Hellcat", estado: "RETIRADO" },
+            { id: "C-01", dominio: "AÉREO", tipo: "COMERCIAL", modelo: "Boeing 737 Cargo", estado: "EN SERVICIO" }
+        ];
+
+        async function cargarDatosRemotos(forceRefresh = false) {
+            const fleetContainer = document.getElementById('fleetContainer');
+            const errorState = document.getElementById('errorState');
+            const linkIndicator = document.getElementById('linkIndicator');
+            const linkStatusText = document.getElementById('linkStatusText');
+
+            errorState.classList.add('hidden');
+            linkIndicator.className = 'w-2 h-2 rounded-full bg-yellow-400 animate-ping';
+            linkStatusText.textContent = 'SINCRONIZANDO';
+            linkStatusText.className = 'text-yellow-400';
+
+            // Mostrar skeletons de carga
+            fleetContainer.innerHTML = Array(6).fill(0).map(() => `
+                <div class="bg-tactic-panel border border-tactic-border p-4 rounded-sm animate-pulse h-40 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between mb-3"><div class="w-12 h-4 bg-tactic-border rounded"></div><div class="w-20 h-4 bg-tactic-border rounded"></div></div>
+                        <div class="w-3/4 h-5 bg-tactic-border rounded mb-2"></div>
+                        <div class="w-1/2 h-3 bg-tactic-border rounded"></div>
+                    </div>
+                    <div class="border-t border-tactic-border pt-3 flex justify-between"><div class="w-10 h-3 bg-tactic-border rounded"></div><div class="w-12 h-3 bg-tactic-border rounded"></div></div>
+                </div>
+            `).join('');
+
+            if (!forceRefresh) {
+                const cachedData = localStorage.getItem(CACHE_KEY);
+                const cachedTime = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+                if (cachedData && cachedTime && (Date.now() - parseInt(cachedTime) < CACHE_TTL)) {
+                    try {
+                        const parsed = JSON.parse(cachedData);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            procesarDatos(parsed, 'CACHÉ LOCAL');
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn("Error leyendo caché local.");
+                    }
+                }
+            }
+
+            try {
+                let response;
+                try {
+                    response = await fetch(DATA_URL, { mode: 'cors' });
+                } catch (fetchErr) {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(DATA_URL)}`;
+                    response = await fetch(proxyUrl);
+                }
+
+                if (!response.ok) throw new Error(`HTTP Error status: ${response.status}`);
+                
+                const datosCrudos = await response.json();
+                
+                let listaFinal = datosCrudos;
+                if (!Array.isArray(datosCrudos)) {
+                    if (datosCrudos.data && Array.isArray(datosCrudos.data)) {
+                        listaFinal = datosCrudos.data;
+                    } else if (datosCrudos.items && Array.isArray(datosCrudos.items)) {
+                        listaFinal = datosCrudos.items;
+                    } else if (typeof datosCrudos === 'object') {
+                        const possibleArray = Object.values(datosCrudos).find(val => Array.isArray(val));
+                        listaFinal = possibleArray || [datosCrudos];
+                    }
+                }
+
+                if (!Array.isArray(listaFinal) || listaFinal.length === 0) {
+                    throw new Error("El JSON remoto no contiene registros válidos.");
+                }
+
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(listaFinal));
+                    localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+                } catch (e) {}
+
+                procesarDatos(listaFinal, 'ENLACE DIRECTO');
+
+            } catch (err) {
+                console.warn("Fallo al conectar con el JSON remoto, usando respaldo:", err);
+                procesarDatos(BACKUP_DATA, 'MODO RESPALDO (OFFLINE)');
+            }
+        }
+
+        function procesarDatos(data, origen) {
+            const linkIndicator = document.getElementById('linkIndicator');
+            const linkStatusText = document.getElementById('linkStatusText');
+
+            flotaDB = data.map((item, index) => {
+                const idVal = item.id || item.codigo || item.ID || item.codigo_unidad || item.serial || `M-${index + 1}`;
+                const dominioVal = item.dominio || item.categoria_operativa || item.domain || item.sector || 'AÉREO';
+                const tipoVal = item.tipo || item.clase || item.categoria || item.rol || item.tipo_unidad || item.modelo_aeronave || 'ESTÁNDAR';
+                const modeloVal = item.modelo || item.nombre || item.unidad || item.model || item.nombre_unidad || item.equipo || 'Unidad Táctica';
+                const estadoVal = item.estado || item.estatus || item.status || item.condicion || 'EN SERVICIO';
+                const imagenVal = item.imagen || item.img || item.url_imagen || item.photo || `https://placehold.co/600x400/101712/39ff14?text=${encodeURIComponent(modeloVal)}`;
+
+                return {
+                    id: String(idVal),
+                    d: String(dominioVal).toUpperCase(),
+                    t: String(tipoVal).toUpperCase(),
+                    m: String(modeloVal),
+                    e: String(estadoVal).toUpperCase(),
+                    img: String(imagenVal)
+                };
+            });
+
+            linkIndicator.className = 'w-2 h-2 rounded-full bg-tactic-primary animate-ping';
+            linkStatusText.textContent = `ONLINE (${origen})`;
+            linkStatusText.className = 'text-tactic-primary';
+
+            inicializarSistema();
+        }
+
+        function inicializarSistema() {
+            const tipoSelect = document.getElementById('tipoFlota');
+            const estadoSelect = document.getElementById('estadoFlota');
+            const searchQuery = document.getElementById('searchQuery');
+            const btnReset = document.getElementById('btnReset');
+            const btnRefreshCache = document.getElementById('btnRefreshCache');
+            const btnRetry = document.getElementById('btnRetry');
+            const fleetContainer = document.getElementById('fleetContainer');
+            const emptyState = document.getElementById('emptyState');
+            const totalRecordsBadge = document.getElementById('totalRecordsBadge');
+            const resultCounter = document.getElementById('resultCounter');
+            
+            // Modal elements
+            const modelModal = document.getElementById('modelModal');
+            const closeModal = document.getElementById('closeModal');
+            const btnCloseModalBtn = document.getElementById('btnCloseModalBtn');
+            const modalModelTitle = document.getElementById('modalModelTitle');
+            const modalModelId = document.getElementById('modalModelId');
+            const modalModelType = document.getElementById('modalModelType');
+            const modalModelStatus = document.getElementById('modalModelStatus');
+            const modalModelImg = document.getElementById('modalModelImg');
+
+            totalRecordsBadge.textContent = flotaDB.length;
+
+            const tipos = [...new Set(flotaDB.map(item => item.t).filter(Boolean))].sort();
+            tipoSelect.innerHTML = '<option value="TODOS">TODOS LOS TIPOS</option>' + 
+                tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+
+            function abrirModalModelo(item) {
+                modalModelTitle.textContent = item.m;
+                modalModelId.textContent = `ID: ${item.id} // DOMINIO: ${item.d}`;
+                modalModelType.textContent = item.t;
+                modalModelStatus.textContent = item.e;
+                modalModelImg.src = item.img;
+                modelModal.classList.remove('hidden');
+                modelModal.classList.add('flex');
+            }
+
+            function cerrarModalModelo() {
+                modelModal.classList.remove('flex');
+                modelModal.classList.add('hidden');
+            }
+
+            closeModal.onclick = cerrarModalModelo;
+            btnCloseModalBtn.onclick = cerrarModalModelo;
+            modelModal.onclick = (e) => {
+                if (e.target === modelModal) cerrarModalModelo();
+            };
+
+            function filtrarYRenderizar() {
+                const textoBusqueda = searchQuery.value.toLowerCase().trim();
+                const tipoSel = tipoFlota.value;
+                const estadoSel = estadoFlota.value;
+
+                const hayFiltrosActivos = textoBusqueda !== '' || tipoSel !== 'TODOS' || estadoSel !== 'TODOS';
+                if (hayFiltrosActivos) {
+                    btnReset.removeAttribute('disabled');
+                    btnReset.className = 'w-full bg-transparent hover:bg-tactic-border text-tactic-secondary border border-tactic-secondary hover:border-tactic-primary hover:text-tactic-primary text-xs font-bold py-2.5 px-4 rounded-sm transition duration-200 cursor-pointer';
+                } else {
+                    btnReset.setAttribute('disabled', 'true');
+                    btnReset.className = 'w-full bg-transparent text-tactic-border border border-tactic-border text-xs font-bold py-2.5 px-4 rounded-sm transition duration-200 cursor-not-allowed opacity-50';
+                }
+
+                const resultados = flotaDB.filter(item => {
+                    const matchTexto = item.m.toLowerCase().includes(textoBusqueda) || item.id.toLowerCase().includes(textoBusqueda) || item.t.toLowerCase().includes(textoBusqueda);
+                    const matchTipo = tipoSel === 'TODOS' || item.t === tipoSel;
+                    
+                    let matchEstado = true;
+                    if (estadoSel !== 'TODOS') {
+                        matchEstado = item.e.toLowerCase() === estadoSel.toLowerCase() || item.e.toLowerCase().includes(estadoSel.toLowerCase());
+                    }
+
+                    return matchTexto && matchTipo && matchEstado;
+                });
+
+                resultCounter.textContent = resultados.length;
+
+                if (resultados.length === 0) {
+                    fleetContainer.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    emptyState.classList.add('flex');
+                } else {
+                    emptyState.classList.remove('flex');
+                    emptyState.classList.add('hidden');
+                    
+                    fleetContainer.innerHTML = resultados.map((item, idx) => `
+                        <div class="card-item bg-tactic-panel border border-tactic-border p-4 rounded-sm shadow-panel flex flex-col justify-between hover:border-tactic-primary transition-all duration-200 cursor-pointer group" data-index="${flotaDB.indexOf(item)}">
+                            <div>
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-[10px] bg-tactic-border text-tactic-primary px-2 py-0.5 rounded-sm font-bold">${item.id}</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-sm font-bold ${item.e.includes('SERVICIO') || item.e.includes('ACTIVO') || item.e.includes('OPERATIVO') ? 'bg-tactic-primary/20 text-tactic-primary' : 'bg-tactic-alert/20 text-tactic-alert'}">${item.e}</span>
+                                </div>
+                                <h3 class="text-sm font-bold text-white mb-2 group-hover:text-tactic-primary transition">${item.m}</h3>
+                            </div>
+                            <div class="border-t border-tactic-border pt-3 mt-2 flex justify-between items-center text-[10px] text-tactic-secondary">
+                                <span class="uppercase">${item.t}</span>
+                                <span class="text-tactic-primary font-bold">VER EXPEDIENTE <i class="fa-solid fa-arrow-right ml-1"></i></span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // Asignar eventos de click a cada tarjeta
+                    document.querySelectorAll('.card-item').forEach(card => {
+                        card.onclick = () => {
+                            const index = card.getAttribute('data-index');
+                            abrirModalModelo(flotaDB[index]);
+                        };
+                    });
+                }
+            }
+
+            tipoFlota.onchange = filtrarYRenderizar;
+            estadoFlota.onchange = filtrarYRenderizar;
+            searchQuery.oninput = filtrarYRenderizar;
+
+            btnReset.onclick = () => {
+                if (btnReset.hasAttribute('disabled')) return;
+                tipoFlota.value = 'TODOS';
+                estadoFlota.value = 'TODOS';
+                searchQuery.value = '';
+                filtrarYRenderizar();
+            };
+
+            btnRefreshCache.onclick = () => {
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+                cargarDatosRemotos(true);
+            };
+
+            if (btnRetry) {
+                btnRetry.onclick = () => cargarDatosRemotos(true);
+            }
+
+            filtrarYRenderizar();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            cargarDatosRemotos(false);
+        });
+    </script>
+</body>
+</html>
